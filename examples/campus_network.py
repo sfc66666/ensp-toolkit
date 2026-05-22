@@ -43,12 +43,12 @@ acc_js = tb.add_device("AccSW-JS", "S3700", x=750, y=680)   # 教室
 acc_ss = tb.add_device("AccSW-SS", "S3700", x=1150, y=680)  # 宿舍楼
 
 # ── Terminals ──
-pc_jf1 = tb.add_device("PC-JF1", "PC", x=150, y=820, ip="0.0.0.0", mask="255.255.255.0", gateway="192.168.10.254")
-pc_jf2 = tb.add_device("PC-JF2", "PC", x=300, y=820, ip="0.0.0.0", mask="255.255.255.0", gateway="192.168.10.254")
-pc_js1 = tb.add_device("PC-JS1", "PC", x=600, y=820, ip="0.0.0.0", mask="255.255.255.0", gateway="192.168.20.254")
-pc_js2 = tb.add_device("PC-JS2", "PC", x=750, y=820, ip="0.0.0.0", mask="255.255.255.0", gateway="192.168.20.254")
-pc_ss1 = tb.add_device("PC-SS1", "PC", x=1000, y=820, ip="0.0.0.0", mask="255.255.255.0", gateway="192.168.30.254")
-pc_ss2 = tb.add_device("PC-SS2", "PC", x=1150, y=820, ip="0.0.0.0", mask="255.255.255.0", gateway="192.168.30.254")
+pc_jf1 = tb.add_device("PC-JF1", "PC", x=150, y=820, dhcp=True, gateway="192.168.10.254")
+pc_jf2 = tb.add_device("PC-JF2", "PC", x=300, y=820, dhcp=True, gateway="192.168.10.254")
+pc_js1 = tb.add_device("PC-JS1", "PC", x=600, y=820, dhcp=True, gateway="192.168.20.254")
+pc_js2 = tb.add_device("PC-JS2", "PC", x=750, y=820, dhcp=True, gateway="192.168.20.254")
+pc_ss1 = tb.add_device("PC-SS1", "PC", x=1000, y=820, dhcp=True, gateway="192.168.30.254")
+pc_ss2 = tb.add_device("PC-SS2", "PC", x=1150, y=820, dhcp=True, gateway="192.168.30.254")
 
 # ── Servers ──
 srv_dhcp = tb.add_device("Server-DHCP", "Server", x=350, y=300, ip="192.168.100.10", mask="255.255.255.0", gateway="192.168.100.254")

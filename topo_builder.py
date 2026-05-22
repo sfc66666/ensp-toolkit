@@ -12,7 +12,7 @@ from .models import DEVICE_MODELS, _new_id, _mac, _fw_mac, _pc_mac
 class Device:
     """Represents a single device in the topology."""
 
-    def __init__(self, name, model, x=None, y=None, config=None, ip=None, mask=None, gateway=None):
+    def __init__(self, name, model, x=None, y=None, config=None, ip=None, mask=None, gateway=None, dhcp=False):
         self.name = name
         self.model = model
         self.id = _new_id()
@@ -22,14 +22,30 @@ class Device:
         self.ip = ip
         self.mask = mask
         self.gateway = gateway
+        self.dhcp = dhcp
 
         model_def = DEVICE_MODELS.get(model)
         if not model_def:
             raise ValueError(f"Unknown device model: {model}")
 
         self.model_def = model_def
-        self._used_ports = {}  # if_type -> next_index
+        self._used_ports = {}  # if_type -> next_index (per-type)
         self._com_port = None
+
+        # Compute flat port index offsets for eNSP. eNSP uses a single
+        # flat index (srcIndex/tarIndex) across ALL interface types.
+        # Use the VRP interface name (e.g. "GE", "Ethernet") as the lookup key.
+        # Only set each key once (first occurrence wins) to avoid overwriting
+        # the base offset when the same type appears in multiple groups.
+        self._if_offset = {}
+        total = 0
+        for slot_def in model_def["slots"]:
+            for iface in slot_def["interfaces"]:
+                ifname = iface.get("interfacename") or iface.get("type", "")
+                cnt = int(iface.get("count", 1))
+                if ifname not in self._if_offset:
+                    self._if_offset[ifname] = total
+                total += cnt
 
     def _get_mac(self):
         gen = self.model_def.get("gen_mac")
@@ -38,10 +54,12 @@ class Device:
         return _mac()
 
     def allocate_port(self, if_type="Ethernet"):
-        """Allocate next available port index for a given interface type."""
-        idx = self._used_ports.get(if_type, 0)
-        self._used_ports[if_type] = idx + 1
-        return idx
+        """Allocate next available flat port index for a given interface type."""
+        per_type_idx = self._used_ports.get(if_type, 0)
+        self._used_ports[if_type] = per_type_idx + 1
+        # Return flat index (eNSP's srcIndex/tarIndex)
+        base = self._if_offset.get(if_type, 0)
+        return base + per_type_idx
 
     def get_vrp_interface(self, if_type="Ethernet", port_index=None):
         """Get the VRP interface name for a port."""
@@ -102,17 +120,19 @@ class Device:
         """Build settings string for PC/Server/Client devices."""
         model = self.model
         if model == "PC":
-            ip = self.ip or "192.168.1.1"
+            ip = self.ip or "0.0.0.0"
             mask = self.mask or "255.255.255.0"
-            gw = self.gateway or "192.168.1.254"
+            gw = self.gateway or "0.0.0.0"
             dns = self.config.get("dns", "0.0.0.0")
             mc = _pc_mac()
+            dhcp_state = "1" if self.dhcp else "0"
+            dns_auto = "1" if self.dhcp else "0"
             return (f" -simpc_ip {ip}  -simpc_mask {mask}  -simpc_gateway {gw}"
                     f"  -simpc_mac {mc}  -simpc_mc_dstip 0.0.0.0"
                     f"  -simpc_mc_dstmac 00-00-00-00-00-00"
                     f"  -simpc_dns1 {dns}  -simpc_dns2 0.0.0.0"
                     f"  -simpc_ipv6 ::  -simpc_prefix 128  -simpc_gatewayv6 ::"
-                    f"  -simpc_dhcp_state 0  -simpc_dhcpv6_state 0  -simpc_dns_auto_state 0"
+                    f"  -simpc_dhcp_state {dhcp_state}  -simpc_dhcpv6_state 0  -simpc_dns_auto_state {dns_auto}"
                     f"  -simpc_igmp_version 1  -simpc_group_ip_start 0.0.0.0"
                     f"  -simpc_src_ip_start 0.0.0.0  -simpc_group_num 0  -simpc_group_step 0"
                     f"  -simpc_src_num 0  -simpc_src_step 0  -simpc_type MODE_IS_INCLUDE ")
