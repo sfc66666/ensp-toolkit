@@ -91,6 +91,8 @@ class VRPConfig:
             return
         if "qos_queue_profile" in kwargs:
             cfg.append(f" qos queue-profile {kwargs['qos_queue_profile']}")
+        if "dhcp_select_global" in kwargs and kwargs["dhcp_select_global"]:
+            cfg.append(" dhcp select global")
 
     # ── STP ───────────────────────────────────────────
     def set_stp(self, mode="stp", region_name=None, revision_level=None, instance_configs=None):
@@ -207,6 +209,13 @@ class VRPConfig:
         lines.append(" clock timezone China-Standard-Time minus 08:00:00")
         lines.append("#")
 
+        # Inject raw lines added via add_line() (firewall zones, security-policy,
+        # time-range, traffic classifier/behavior/policy, etc.)
+        for raw in self._lines:
+            lines.append(raw)
+        if self._lines:
+            lines.append("#")
+
         # VLANs
         if self._vlan_ids:
             for vid in sorted(self._vlan_ids):
@@ -288,19 +297,43 @@ class VRPConfig:
                     lines.append(f" {line}")
                 lines.append("#")
 
+        # Build VRRP lookup: ifname -> list of vrrp config lines
+        vrrp_by_if = {}
+        for vrrp in self._vrrp_groups:
+            ifname = vrrp["interface"]
+            if ifname not in vrrp_by_if:
+                vrrp_by_if[ifname] = []
+            vrrp_by_if[ifname].append(
+                f" vrrp vrid {vrrp['vrid']} virtual-ip {vrrp['virtual_ip']}"
+            )
+            vrrp_by_if[ifname].append(
+                f" vrrp vrid {vrrp['vrid']} priority {vrrp['priority']}"
+            )
+            if vrrp.get("preempt", True):
+                vrrp_by_if[ifname].append(
+                    f" vrrp vrid {vrrp['vrid']} preempt-mode timer delay 0"
+                )
+            if vrrp.get("auth_key"):
+                vrrp_by_if[ifname].append(
+                    f" vrrp vrid {vrrp['vrid']} authentication-mode simple {vrrp['auth_key']}"
+                )
+
         # Interfaces
         for ifname, cfg_lines in sorted(self._interfaces.items()):
             lines.append(f"interface {ifname}")
             for cl in cfg_lines:
                 lines.append(cl)
+            # Append VRRP config if any
+            for vrrp_line in vrrp_by_if.pop(ifname, []):
+                lines.append(vrrp_line)
             lines.append("#")
 
-        # VRRP
-        for vrrp in self._vrrp_groups:
-            ifname = vrrp["interface"]
-            # Append to interface config
-            # We need to find the right position in lines
-            pass
+        # Any VRRP groups on interfaces without other config
+        for ifname, vrrp_lines in vrrp_by_if.items():
+            lines.append(f"interface {ifname}")
+            for vl in vrrp_lines:
+                lines.append(vl)
+            lines.append("#")
 
         # OSPF
         ospf_cfg = getattr(self, "_ospf_config", None)
