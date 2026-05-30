@@ -28,7 +28,52 @@ from ensp import TopoBuilder, VRPConfig
 
 ---
 
-## 5-Minute Quick Start
+## Interactive Generator (No Coding Required!)
+
+If you **don't want to write Python**, just run the interactive CLI:
+
+```bash
+pip install -e .
+ensp-cli
+```
+
+It asks a few questions and generates everything for you:
+
+```
+============================================================
+  eNSP INTERACTIVE TOPOLOGY GENERATOR
+============================================================
+
+Project name [my_network]: ShanghaiHQ_QoS
+
+  STEP 1: Which devices do you need?
+  Add Core Switch?    [Y/n]: y
+  Add Firewall?       [Y/n]: y
+    ...
+
+  STEP 2: Business types (VLANs)
+  Office (办公)?      [Y/n]: y
+  Video (视频)?       [Y/n]: y
+    ...
+
+  STEP 3: Network features
+  Enable DHCP?        [Y/n]: y
+  Enable VRRP?        [Y/n]: y
+  Enable QoS?         [Y/n]: y
+    ...
+
+→ ~/Desktop/ensp_output/ShanghaiHQ_QoS/
+  ├── ShanghaiHQ_QoS.topo        ← Open in eNSP
+  └── per-device vrpcfg.zip      ← Import to each device
+```
+
+Or copy one of the **example scripts** and edit the parts you need:
+- [`examples/campus_network.py`](examples/campus_network.py) — 16-device campus network
+- [`examples/shanghai_chengdu_qos.py`](examples/shanghai_chengdu_qos.py) — HQ+Branch with QoS
+
+---
+
+## Python API (For Automation)
 
 Build a simple LAN with one switch and two PCs:
 
