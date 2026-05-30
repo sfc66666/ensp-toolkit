@@ -85,10 +85,10 @@ class VRPConfig:
             for rule in kwargs["nat_server"]:
                 cfg.append(f" nat server protocol {rule}")
         if "eth_trunk" in kwargs:
-            cfg = [f"interface {ifname}"] + cfg
-            cfg.insert(1, f" eth-trunk {kwargs['eth_trunk']}")
-            self._interfaces[ifname] = cfg
-            return
+            # Insert eth-trunk line first; build() already adds the
+            # "interface <ifname>" header, so don't duplicate it here.
+            cfg.insert(0, f" eth-trunk {kwargs['eth_trunk']}")
+            # Continue processing remaining kwargs (e.g. undo_shutdown)
         if "qos_queue_profile" in kwargs:
             cfg.append(f" qos queue-profile {kwargs['qos_queue_profile']}")
         if "dhcp_select_global" in kwargs and kwargs["dhcp_select_global"]:
@@ -179,13 +179,14 @@ class VRPConfig:
         })
 
     # ── VRRP ──────────────────────────────────────────
-    def add_vrrp(self, ifname, vrid, virtual_ip, priority=100, preempt=True):
+    def add_vrrp(self, ifname, vrid, virtual_ip, priority=100, preempt=True, auth_key=None):
         self._vrrp_groups.append({
             "interface": ifname,
             "vrid": vrid,
             "virtual_ip": virtual_ip,
             "priority": priority,
             "preempt": preempt,
+            "auth_key": auth_key,
         })
 
     # ── QoS ───────────────────────────────────────────

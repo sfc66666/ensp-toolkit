@@ -140,13 +140,13 @@ cfg_core1.set_interface("GigabitEthernet0/0/7", description="Server-DHCP", link_
 cfg_core1.set_interface("GigabitEthernet0/0/8", description="Server-Web", link_type="access", access_vlan=100, undo_shutdown=True)
 
 # VLAN interfaces with VRRP (CoreSW1 is master for VLAN 10,20; backup for VLAN 30)
-cfg_core1.set_interface("Vlanif10", ip="192.168.10.252 255.255.255.0")
+cfg_core1.set_interface("Vlanif10", ip="192.168.10.252 255.255.255.0", undo_shutdown=True)
 cfg_core1.add_vrrp("Vlanif10", vrid=10, virtual_ip="192.168.10.254", priority=120)
-cfg_core1.set_interface("Vlanif20", ip="192.168.20.252 255.255.255.0")
+cfg_core1.set_interface("Vlanif20", ip="192.168.20.252 255.255.255.0", undo_shutdown=True)
 cfg_core1.add_vrrp("Vlanif20", vrid=20, virtual_ip="192.168.20.254", priority=120)
-cfg_core1.set_interface("Vlanif30", ip="192.168.30.252 255.255.255.0")
+cfg_core1.set_interface("Vlanif30", ip="192.168.30.252 255.255.255.0", undo_shutdown=True)
 cfg_core1.add_vrrp("Vlanif30", vrid=30, virtual_ip="192.168.30.254", priority=100)
-cfg_core1.set_interface("Vlanif100", ip="192.168.100.254 255.255.255.0")
+cfg_core1.set_interface("Vlanif100", ip="192.168.100.254 255.255.255.0", undo_shutdown=True)
 
 # DHCP select global on VLAN interfaces
 cfg_core1.set_interface("Vlanif10", dhcp_select_global=True)
@@ -203,13 +203,13 @@ for port, name in [(4, "AccSW-JF-2"), (5, "AccSW-JS-2"), (6, "AccSW-SS-2")]:
 cfg_core2.set_interface("GigabitEthernet0/0/2", ip="192.168.100.253 255.255.255.0", undo_shutdown=True)
 
 # VRRP - CoreSW2 is backup for VLAN 10,20; master for VLAN 30
-cfg_core2.set_interface("Vlanif10", ip="192.168.10.253 255.255.255.0")
+cfg_core2.set_interface("Vlanif10", ip="192.168.10.253 255.255.255.0", undo_shutdown=True)
 cfg_core2.add_vrrp("Vlanif10", vrid=10, virtual_ip="192.168.10.254", priority=100)
-cfg_core2.set_interface("Vlanif20", ip="192.168.20.253 255.255.255.0")
+cfg_core2.set_interface("Vlanif20", ip="192.168.20.253 255.255.255.0", undo_shutdown=True)
 cfg_core2.add_vrrp("Vlanif20", vrid=20, virtual_ip="192.168.20.254", priority=100)
-cfg_core2.set_interface("Vlanif30", ip="192.168.30.253 255.255.255.0")
+cfg_core2.set_interface("Vlanif30", ip="192.168.30.253 255.255.255.0", undo_shutdown=True)
 cfg_core2.add_vrrp("Vlanif30", vrid=30, virtual_ip="192.168.30.254", priority=120)
-cfg_core2.set_interface("Vlanif100", ip="192.168.100.251 255.255.255.0")
+cfg_core2.set_interface("Vlanif100", ip="192.168.100.251 255.255.255.0", undo_shutdown=True)
 
 cfg_core2.set_interface("Vlanif10", dhcp_select_global=True)
 cfg_core2.set_interface("Vlanif20", dhcp_select_global=True)
@@ -299,15 +299,14 @@ cfg_ar1.set_interface("GigabitEthernet0/0/0", ip="202.1.1.2 255.255.255.0", undo
     description="To-ISP")
 cfg_ar1.set_interface("GigabitEthernet0/0/1", ip="100.100.100.2 255.255.255.0", undo_shutdown=True,
     description="To-FW1")
-cfg_ar1.set_interface("GigabitEthernet0/0/2", ip="10.0.10.1 255.255.255.0", undo_shutdown=True,
-    description="To-Core-OSPF")
 
 cfg_ar1.set_default_route("202.1.1.1")
-cfg_ar1.add_static_route("192.168.0.0", "255.255.0.0", "10.0.10.2")
+# Route internal subnets via FW1 (FW1 learns them via OSPF from core switches)
+cfg_ar1.add_static_route("192.168.0.0", "255.255.0.0", "100.100.100.1")
 
-# OSPF for internal routes
+# OSPF between AR1 and FW1 on the existing 100.100.100.0/24 link
 cfg_ar1.set_ospf(process_id=1, router_id="10.10.10.10",
-    networks=[("10.0.10.0", "0.0.0.255")],
+    networks=[("100.100.100.0", "0.0.0.255")],
     default_advertise=True)
 
 print("\n--- AR1 (Border Router) ---")
@@ -375,11 +374,12 @@ cfg_fw1.add_line("#")
 cfg_fw1.set_interface("GigabitEthernet1/0/1", traffic_policy_in="QoS_NIGHT")
 cfg_fw1.set_interface("GigabitEthernet1/0/2", traffic_policy_in="QoS_NIGHT")
 
-# OSPF
+# OSPF (internal links to cores + external link to AR1)
 cfg_fw1.set_ospf(process_id=1, router_id="3.3.3.3",
     networks=[
         ("10.0.0.0", "0.0.0.3"),
         ("10.0.0.4", "0.0.0.3"),
+        ("100.100.100.0", "0.0.0.255"),
     ])
 
 print("\n--- FW1 (Firewall + Night QoS) ---")

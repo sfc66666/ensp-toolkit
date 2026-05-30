@@ -62,9 +62,18 @@ class Device:
         return base + per_type_idx
 
     def get_vrp_interface(self, if_type="Ethernet", port_index=None):
-        """Get the VRP interface name for a port."""
+        """Get the VRP interface name for a port.
+
+        When *port_index* is passed explicitly (e.g. from
+        _generate_device_config), it is a **flat** index produced by
+        allocate_port().  Convert it back to a per-type index before
+        calling the vrp_if_map lambda.
+        """
         if port_index is None:
             port_index = self._used_ports.get(if_type, 0) - 1
+        else:
+            # Flat index → per-type index
+            port_index = port_index - self._if_offset.get(if_type, 0)
         fn = self.model_def.get("vrp_if_map", {}).get(if_type)
         if fn:
             return fn(port_index)
@@ -120,13 +129,18 @@ class Device:
         """Build settings string for PC/Server/Client devices."""
         model = self.model
         if model == "PC":
-            ip = self.ip or "0.0.0.0"
+            if self.dhcp:
+                ip = self.ip or "0.0.0.0"
+                gw = self.gateway or "0.0.0.0"
+            else:
+                ip = self.ip or "192.168.1.1"
+                gw = self.gateway or "192.168.1.254"
             mask = self.mask or "255.255.255.0"
-            gw = self.gateway or "0.0.0.0"
             dns = self.config.get("dns", "0.0.0.0")
             mc = _pc_mac()
             dhcp_state = "1" if self.dhcp else "0"
-            dns_auto = "1" if self.dhcp else "0"
+            # DNS auto only when DHCP is on AND user did not explicitly set a DNS server
+            dns_auto = "1" if (self.dhcp and "dns" not in self.config) else "0"
             return (f" -simpc_ip {ip}  -simpc_mask {mask}  -simpc_gateway {gw}"
                     f"  -simpc_mac {mc}  -simpc_mc_dstip 0.0.0.0"
                     f"  -simpc_mc_dstmac 00-00-00-00-00-00"
